@@ -33,13 +33,13 @@ import math
 ########################################################################################################################
 
 # MQTT Connection Variables
-mqtt_address = "192.168.1.x"
+mqtt_address = "127.0.0.1"
 mqtt_subscr_topic = "homeassistant/#" #to what channel to listen for MQTT updates to switch stuff. I use a "send by" topic here as example.
 mqtt_client_name = "UNIPI2-MQTT"
 mqtt_user = "unipi02"
 mqtt_pass = "abc123ABC!@#"
 # Websocket Connection Variables
-ws_server = "192.168.1.x"
+ws_server = "127.0.0.1"
 ws_user = "none" #not implemented auth for ws yet
 ws_pass = "none"
 # Generic Variables
@@ -123,6 +123,7 @@ def on_mqtt_message(mqttc, userdata, msg):
 		mqtt_msg=str(msg.payload.decode("utf-8","ignore"))
 		logging.debug('{}: Message "{}" on input.'.format(get_function_name(),mqtt_msg))
 		mqtt_msg_history = mqtt_msg
+		print(mqtt_msg)
 		if mqtt_msg.startswith("{"):
 			try:
 				mqtt_msg_json = json.loads(mqtt_msg, object_pairs_hook=OrderedDict) #need the orderedDict here otherwise the order of the mQTT message is changed, that will bnreak the return message and than the device won't turn on in HASSIO
@@ -575,8 +576,12 @@ def transition_brightness(desired_brightness,trans_time,dev,circuit,topic,messag
 		if (delta_level != number_steps):
 			# we need to set a start level via MQTT here as otherwise the device won't show as on when stating transition. Do not include in loop, too slow. 
 			step_increase = float(delta_level / number_steps)
-			#logging.debug('TRANSITION DEBUG 2; number of steps: {} and tread.is_running: {}'.format(number_steps,thread_status))
-			short_lived_ws = create_connection("ws://" + ws_server + "/ws")		#setting up a websocket connect here to send the change commands over. Cannot go to global WS since that is in a function and that won't accept commands from here. Maybe one day change to asyncio websocket?
+			#logging.debug('TRANSITION DEBUG 2; number of steps: {} and tread.is
+			#setting up a websocket connect here to send the change commands over. Cannot go to global WS since that is in a function and that won't accept commands from here. Maybe one day change to asyncio websocket?_running: {}'.format(number_steps,thread_status))
+			logging.info('creating conn')
+			print('creating conn')
+			short_lived_ws = create_connection("ws://" + ws_server + ":1080/ws")
+			logging.info('created conn')
 			### Using the stop_thread function to interrupt when needed. Thread.is_running makes sure we listen to external stop signals ###
 			while int(number_steps) > 0 and thread.is_running(): 
 				new_level = round(new_level + step_increase,1)
@@ -859,7 +864,7 @@ def create_ws():
 	while True:
 		try:
 			websocket.enableTrace(False)
-			ws = websocket.WebSocketApp("ws://" + ws_server + "/ws",# header=ws_header,
+			ws = websocket.WebSocketApp("ws://" + ws_server + ":1080/ws",# header=ws_header,
 				on_open = on_ws_open,
 				on_message = on_ws_message,
 				on_error = on_ws_error,
@@ -891,6 +896,8 @@ def on_ws_close(ws):
 	
 def on_ws_error(ws, errors):
 	logging.error('{}: WebSocket Error; "{}"'.format(get_function_name(),errors))
+#	for line in traceback.format_stack():
+#		logging.error(line)
 	
 ### First Run Function to set initial state of Inputs
 def firstrun():
@@ -916,7 +923,7 @@ def firstrun():
 
 if __name__ == "__main__":
 	### setting some housekeeping functions and globel vars
-	logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',filename=logging_path,level=logging.ERROR,datefmt='%Y-%m-%d %H:%M:%S') #DEBUG,INFO,WARNING,ERROR,CRITICAL
+	logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',filename=logging_path,level=logging.DEBUG,datefmt='%Y-%m-%d %H:%M:%S') #DEBUG,INFO,WARNING,ERROR,CRITICAL
 	urllib3_log = logging.getLogger("urllib3") #ignoring informational logging from called modules (rest calls in this case) https://stackoverflow.com/questions/24344045/how-can-i-completely-remove-any-logging-from-requests-module-in-python
 	urllib3_log.setLevel(logging.CRITICAL) 
 	unipy = unipython(ws_server, ws_user, ws_pass)

@@ -32,7 +32,7 @@ def ErrorHandling(e):
 class unipython(object):
 
 	def __init__(self, host, username, password):
-			self.base_url = 'http://%s:8080/rest/' % (host) 
+			self.base_url = 'http://%s:1080/rest/' % (host) 
 			#self.api = requests.Session()
 			#self.api.auth = (username, password)
 			#self.api.headers.update({'Content-Type': 'application/json; charset=utf-8'})

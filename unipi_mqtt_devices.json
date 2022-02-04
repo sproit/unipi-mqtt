@@ -1,29 +1,21 @@
 [
    {
-      "circuit":"1_01",
-      "description":"Hal PIR",
+      "circuit":"1",
+      "description":"Temp licht drukknop",
       "dev":"input",
-      "device_delay":20,
+      "device_delay":0,
       "device_normal":"no",
       "unipi_value":0,
       "unipi_prev_value_timstamp":0,
-      "state_topic": "unipi/bgg/hal/motion"
+      "state_topic": "home/zolder/tempdrukknop"
    },
    {
-      "circuit":"2_02",
+      "circuit":"1",
       "description":"Achterdeur Beldrukker",
-      "dev":"input",
-      "handle_local":
-            {
-	            "type": "bel",
-				"trigger":"on",
-				"rings": 2,
-				"output_dev": "output",
-				"output_circuit": "2_01"
-			},
+      "dev":"relay",
       "device_delay":0,
       "device_normal":"no",
-      "state_topic": "unipi/bgg/achterdeur/beldrukker"
+      "state_topic": "home/zolder/relay"
    },
    {
       "circuit":"2_03",
