@@ -434,15 +434,15 @@ def dev_di(message_dev):
                         elif handle_local_presence:
                             handle_local_switch_on_or_toggle(message_dev, config_dev)
                         else:
-                            dev_switch_on(config_dev[
-                                              'state_topic'])  # sends MQTT command, removed as test since this is done in handle_local_switch_toggle too
-                    elif (config_dev[
-                              'device_normal'] == 'nc'):  # Turn off devices that switch to their normal mode and have no delay configured! Delayed devices will be turned off somewhere else
-                        if handle_local_presence == True:
+                            publish_state(config_dev['state_topic'], payload_on)
+                            # sends MQTT command, removed as test since this is done in handle_local_switch_toggle too
+                    elif config_dev['device_normal'] == 'nc':
+                        # Turn off devices that switch to their normal mode and have no delay configured! Delayed devices will be turned off somewhere else
+                        if handle_local_presence:
                             pass  # OLD: handle_local_switch_toggle(message_dev,config_dev) # we do a pass since a pulse based switch sends a ON and OFF in 1 action, we only need 1 action to happen!
                         else:
-                            dev_switch_off(config_dev[
-                                               'state_topic'])  # sends MQTT command, removed as test since this is done in handle_local_switch_toggle too
+                            publish_state(config_dev['state_topic'], payload_off)
+                            # sends MQTT command, removed as test since this is done in handle_local_switch_toggle too
                     else:
                         logging.debug('{}: ERROR 1, config: {}, normal_config: {}, {}, {}'.format(get_function_name(),
                                                                                                   message_dev['value'],
@@ -457,11 +457,12 @@ def dev_di(message_dev):
                         if handle_local_presence:
                             pass  # - OLD:handle_local_switch_toggle(message_dev,config_dev)
                         else:
-                            dev_switch_off(config_dev[
-                                               'state_topic'])  # Turn off devices that switch to their normal mode and have no delay configured! Delayed devices will be turned off somewhere else
-                    elif (config_dev['device_normal'] == 'nc'):
-                        if (device_type_presence == True):
-                            if (config_dev['device_type'] == 'counter'):
+                            publish_state(config_dev['state_topic'], payload_off)
+                            # Turn off devices that switch to their normal mode and have no delay configured!
+                            # Delayed devices will be turned off somewhere else
+                    elif config_dev['device_normal'] == 'nc':
+                        if device_type_presence:
+                            if config_dev['device_type'] == 'counter':
                                 mqtt_set_counter(message_dev, config_dev)
                             else:
                                 logging.error('{}: Unknown device type "{}", breaking.'.format(get_function_name(),
@@ -470,7 +471,7 @@ def dev_di(message_dev):
                         elif handle_local_presence:
                             handle_local_switch_on_or_toggle(message_dev, config_dev)
                         else:
-                            dev_switch_on(config_dev['state_topic'])
+                            publish_state(config_dev['state_topic'], payload_on)
                     else:
                         logging.debug('{}: ERROR 2, config: {}, normal_config: {}, {}, {}'.format(get_function_name(),
                                                                                                   message_dev['value'],
@@ -890,7 +891,7 @@ def off_commands():
                 # dev_switch_off(config_dev['state_topic']) #device uit zetten
                 # if config_dev['unipi_value'] == 1 and config_dev['device_normal'] == 'no':
                 if config_dev['unipi_value'] == 1 and config_dev['device_normal'] == 'no':
-                    dev_switch_off(config_dev['state_topic'])  # device uit zetten
+                    publish_state(config_dev['state_topic'], payload_off)
                     if handle_local_presence == True: handle_local_switch_toggle(message_dev, config_dev)
                     config_dev['unipi_value'] = 0  # Set var in config file to off
                     logging.info(
@@ -898,7 +899,7 @@ def off_commands():
                             get_function_name(), config_dev['device_delay'], config_dev['description'],
                             config_dev['state_topic']))
                 elif config_dev['unipi_value'] == 0 and config_dev['device_normal'] == 'nc':
-                    dev_switch_off(config_dev['state_topic'])  # device uit zetten
+                    publish_state(config_dev['state_topic'], payload_off)
                     if handle_local_presence == True: handle_local_switch_toggle(message_dev, config_dev)
                     config_dev['unipi_value'] = 1  # Set var in config file to on
                     logging.info(
@@ -910,16 +911,9 @@ def off_commands():
     logging.debug('   {}: EOF.'.format(get_function_name()))
 
 
-def dev_switch_on(mqtt_topic):
-    # Set via MQTT
-    mqttc.publish(mqtt_topic, payload='ON', qos=1, retain=True)
-    logging.info('{}: Set ON for MQTT topic: "{}".'.format(get_function_name(), mqtt_topic))
-
-
-def dev_switch_off(mqtt_topic):
-    # Set via MQTT
-    mqttc.publish(mqtt_topic, payload='OFF', qos=1, retain=True)
-    logging.info('{}: Set OFF for MQTT topic: "{}".'.format(get_function_name(), mqtt_topic))
+def publish_state(topic: str, state: str):
+    mqttc.publish(topic, payload=state, qos=1, retain=True)
+    logging.info('Set {} for MQTT topic: "{}".'.format(state, topic))
 
 
 def mqtt_set_lux(mqtt_topic, lux):
