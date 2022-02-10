@@ -323,6 +323,13 @@ def message_sort(message_dev):
                 get_function_name(), message_dev))
 
 
+def get_configured_device(circuit: int, device_type: str):
+    for configured_device in devdes:
+        if configured_device['circuit'] == circuit and configured_device['dev'] == device_type:
+            return configured_device
+    return None
+
+
 def dev_di(message_dev):
     # Function to handle Digital Inputs from WebSocket (UniPi)
     logging.debug('{}: SOF'.format(get_function_name()))
@@ -506,7 +513,12 @@ def dev_ai(message_dev):
 
 
 def dev_relay(message_dev):
-    pass  # still need to figure out what to do with this. RELAYS ARE HANDLED AS OUTPUT.
+    print(message_dev)
+    device = get_configured_device(message_dev['circuit'], message_dev['dev'])
+    if device is None:
+        return
+    topic = device['state_topic']
+    publish_state(topic, payload_off if message_dev['value'] == 0 else payload_on)
 
 
 def dev_modbus(message_dev):
