@@ -15,24 +15,24 @@
 # detected and lights need to turn on during dimming we kill the thread and start the new action.
 # WARNING. If you don't need threading, don't use it. Its not fun ;-).
 
-import gc
-
-import paho.mqtt.client as mqtt
-import sys
-import json
-import logging
-import datetime
-from unipipython import unipython
 import os
+import gc
+import logging
+import json
 import time
-import threading
+from typing import List
+
 import websocket
 from websocket import create_connection
 import traceback
 from collections import OrderedDict
 import statistics
+import threading
 import math
-# from hanging_threads import start_monitoring
+
+import paho.mqtt.client as mqtt
+
+from unipipython import unipython
 
 ########################################################################################################################
 # 											Variables used in the system					 					     ###
