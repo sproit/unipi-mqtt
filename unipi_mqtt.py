@@ -7,9 +7,14 @@
 # version 02.2021.1  (new version numbering since that's really face these days)
 
 # resources used besides google;
-# - http://jasonbrazeal.com/blog/how-to-build-a-simple-iot-system-with-python/
-# - http://www.diegoacuna.me/how-to-run-a-script-as-a-service-in-raspberry-pi-raspbian-jessie/ TO run this as service
-# - https://gist.github.com/beugley/e37dd3e36fd8654553df for stopable thread part, ### Class and functions to create threads that can be stopped, so that when a lights is still dimming (in a thread since it blocking) but motion is detected and lights need to turn on during dimming we kill the thread and start the new action. WARNING. If you dont need threading, dont use it. Its not fun ;-).
+# http://jasonbrazeal.com/blog/how-to-build-a-simple-iot-system-with-python/ -
+# http://www.diegoacuna.me/how-to-run-a-script-as-a-service-in-raspberry-pi-raspbian-jessie/ TO run this as service -
+# https://gist.github.com/beugley/e37dd3e36fd8654553df for stoppable thread part
+# Class and functions to create threads that can be stopped,
+# so that when a light is still dimming (in a thread since it blocking) but motion is
+# detected and lights need to turn on during dimming we kill the thread and start the new action.
+# WARNING. If you don't need threading, don't use it. Its not fun ;-).
+
 import gc
 
 import paho.mqtt.client as mqtt
@@ -19,7 +24,7 @@ import logging
 import datetime
 from unipipython import unipython
 import os
-import time, traceback
+import time
 import threading
 import websocket
 from websocket import create_connection
@@ -143,7 +148,7 @@ def on_mqtt_message(mqttc, userdata, msg):
         if mqtt_msg.startswith("{"):
             try:
                 mqtt_msg_json = json.loads(mqtt_msg,
-                                           object_pairs_hook=OrderedDict)  # need the orderedDict here otherwise the order of the mQTT message is changed, that will bnreak the return message and than the device won't turn on in HASSIO
+                                           object_pairs_hook=OrderedDict)  # need the orderedDict here otherwise the order of the MQTT message is changed, that will bnreak the return message and than the device won't turn on in HASSIO
             except ValueError as e:
                 logging.error('{}: Message "{}" not a valid JSON - message not processed, error is "{}".'.format(
                     get_function_name(), mqtt_msg, e))
@@ -158,116 +163,105 @@ def on_mqtt_message(mqttc, userdata, msg):
             handle_other(msg.topic, mqtt_msg)
 
 
-# Main function to handle incomming MQTT messages, check content en start the correct function to handle the request. All time consuming, and thus blocking actions, are threaded.
-def handle_json(ms_topic, message):
+# Main function to handle incoming MQTT messages, check content en start the correct function to handle the request.
+# All time-consuming, and thus blocking actions, are threaded.
+def handle_json(ms_topic, message: dict):
     global dThreads
     try:
         # We NEED a dev in the message as this targets a circuit type (analog / digital inputs, etc.) on the UniPi
-        dev_presence = 'dev' in message
-        if dev_presence == True: dev_value = message['dev']
+        dev_value = message['dev']
         # We also NEED a circuit in the message to be able to target a circuit on the UniPi
-        circuit_presence = 'circuit' in message
-        if circuit_presence == True: circuit_value = message['circuit']
+        circuit_value = message['circuit']
         # state, what do we need to do
-        state_presence = 'state' in message
-        if state_presence == True: state_value = message['state']
-        # Transition, optional. You can fade anolog outputs slowly. Transition is the amount of seconds you want to fade to take (seconds always applied to 0-100%, so 0-25% = 25% of seconds)
-        transition_presence = 'transition' in message
-        if transition_presence == True: transition_value = message['transition']
+        state_value = message['state']
+        # Transition, optional. You can fade analog outputs slowly.
+        # Transition is the amount of seconds you want to fade to take
+        # (seconds always applied to 0-100%, so 0-25% = 25% of seconds)
+        transition_value = message.get('transition', None)
         # Brightness, if you switch lights with 0-10 volt we translate the input value (0-255) to 0-10 and consider this brightness
-        brightness_presence = 'brightness' in message
-        if brightness_presence == True: brightness_value = message['brightness']
-        # Repeat, if present this will trigger an on - off action x amout of times. I use this to trigger a relay multiple times to let a bel ring x amount of times.
-        repeat_presence = 'repeat' in message
-        if repeat_presence == True: repeat_value = message['repeat']
+        brightness_value = message.get('brightness', None)
+        # Repeat, if present this will trigger an on - off action x amount of times.
+        # I use this to trigger a relay multiple times to let a bel ring x amount of times.
+        repeat_value = message.get('repeat', None)
         # Duration is used to switch a output on for x seconds. IN my case used to open electrical windows.
-        duration_presence = 'duration' in message
-        if duration_presence == True: duration_value = message['duration']
-        # Effect, not activly used yet, for future reference.
-        effect_presence = 'effect' in message
-        if effect_presence == True: effect_value = message['effect']
-        logging.debug(
-            'Device: {} - {}, Circuit: {} - {}, State: {} - {}, Transition: {} , Brightness: {} , Repeat: {} , Duration: {} , Effect: {} .'.format(
-                dev_presence, dev_value, circuit_presence, circuit_value, state_presence, state_value,
-                transition_presence, brightness_presence, repeat_presence, duration_presence, effect_presence))
+        duration_value = message.get('duration', None)
+        # Effect, not actively used yet, for future reference.
+        effect_value = message.get('effect', None)
+        logging.debug('Device: {}, Circuit: {}, State: {} .'.format(dev_value, circuit_value, state_value))
     except:
         logging.error(
             '{}: Unhandled exception. Looks like input is not valid dict / json. Message data is: "{}".'.format(
                 get_function_name(), message))
     # id = circuit_value
     thread_id = dev_value + circuit_value
-    if dev_presence and circuit_presence and state_presence:  # these are the minimal required arguments for this function to work
-        logging.debug(
-            '{}: Valid WebSocket input received, processing message "{}"'.format(get_function_name(), message))
-        if transition_presence:
-            if brightness_presence:
-                logging.warning(
-                    '{}: starting "transition" message handling for dev "{}" circuit "{}" to value "{}" in {} s. time.'.format(
-                        get_function_name(), circuit_value, state_value, brightness_value, transition_value))
-                if (brightness_value > 255):    logging.error(
-                    '{}: Brightness input is greater than 255, 255 is max value! Setting Brightness to 255.'.format(
-                        get_function_name())); brightness_value = 255
-                StopThread(thread_id)
-                dThreads[thread_id] = StoppableThread(name=thread_id, target=transition_brightness, args=(
-                    brightness_value, transition_value, dev_value, circuit_value, ms_topic, message))
-                dThreads[thread_id].start()
-                logging.warning('TEMP threads {}:'.format(dThreads))
-                logging.warning(
-                    '{}: started thread "{}" for "transition" of dev "{}" circuit "{}".'.format(get_function_name(),
-                                                                                                dThreads[thread_id],
-                                                                                                circuit_value,
-                                                                                                state_value))
-            else:
+    logging.debug(
+        '{}: Valid WebSocket input received, processing message "{}"'.format(get_function_name(), message))
+    if transition_value is not None:
+        if brightness_value is not None:
+            logging.warning(
+                '{}: starting "transition" message handling for dev "{}" circuit "{}" to value "{}" in {} s. time.'.format(
+                    get_function_name(), circuit_value, state_value, brightness_value, transition_value))
+            if brightness_value > 255:
                 logging.error(
-                    '{}: Processing "transition", but missing argument "brightness", aborting. Message data is "{}".'.format(
-                        get_function_name(), message))
-        elif brightness_presence:
-            logging.debug(
-                '{}: starting "brightness" message handling for dev "{}" circuit "{}" to value "{}" (not in thread).'.format(
-                    get_function_name(), circuit_value, state_value, brightness_value))
-            if (brightness_value > 255):    logging.error(
                 '{}: Brightness input is greater than 255, 255 is max value! Setting Brightness to 255.'.format(
                     get_function_name())); brightness_value = 255
             StopThread(thread_id)
-            set_brightness(brightness_value, circuit_value, ms_topic, message)  # not in thread as this is not blocking
-        elif effect_presence:
-            logging.error('{}: Processing "effect", but not yet implemented, aborting. Message data is "{}"'.format(
-                get_function_name(), message))
-        elif duration_presence:
-            logging.debug(
-                '{}: starting "duration" message handling for dev "{}" circuit "{}" to value "{}" for {} sec.'.format(
-                    get_function_name(), circuit_value, state_value, state_value, duration_value))
-            StopThread(thread_id)
-            dThreads[thread_id] = StoppableThread(name=thread_id, target=set_duration, args=(
-                dev_value, circuit_value, state_value, duration_value, ms_topic, message))
+            dThreads[thread_id] = StoppableThread(name=thread_id, target=transition_brightness, args=(
+                brightness_value, transition_value, dev_value, circuit_value, ms_topic, message))
             dThreads[thread_id].start()
-            logging.debug('{}: started thread "{}" for "duration" of dev "{}" circuit "{}".'.format(get_function_name(),
-                                                                                                    dThreads[thread_id],
-                                                                                                    circuit_value,
-                                                                                                    state_value))
-        elif repeat_presence:
-            logging.debug('{}: starting "repeat" message handling for dev "{}" circuit "{}" for {} time'.format(
-                get_function_name(), circuit_value, state_value, int(repeat_value)))
-            StopThread(thread_id)
-            dThreads[thread_id] = StoppableThread(name=thread_id, target=set_repeat,
-                                                  args=(dev_value, circuit_value, int(repeat_value), ms_topic, message))
-            dThreads[thread_id].start()
-            logging.debug('{}: started thread "{}" for "repeat" of dev "{}" circuit "{}".'.format(get_function_name(),
-                                                                                                  dThreads[thread_id],
-                                                                                                  circuit_value,
-                                                                                                  state_value))
-        elif (state_value == "on" or state_value == "off"):
-            logging.debug(
-                '{}: starting "state value" message handling for dev "{}" circuit "{}" to value "{}" (not in thread).'.format(
-                    get_function_name(), circuit_value, state_value, state_value))
-            StopThread(thread_id)
-            set_state(dev_value, circuit_value, state_value, ms_topic, message)  # not in thread, not blocking
+            logging.warning('TEMP threads {}:'.format(dThreads))
+            logging.warning(
+                '{}: started thread "{}" for "transition" of dev "{}" circuit "{}".'.format(get_function_name(),
+                                                                                            dThreads[thread_id],
+                                                                                            circuit_value,
+                                                                                            state_value))
         else:
-            logging.error('{}: No valid actionable item found!')
+            logging.error(
+                '{}: Processing "transition", but missing argument "brightness", aborting. Message data is "{}".'.format(
+                    get_function_name(), message))
+    elif brightness_value is not None:
+        logging.debug(
+            '{}: starting "brightness" message handling for dev "{}" circuit "{}" to value "{}" (not in thread).'.format(
+                get_function_name(), circuit_value, state_value, brightness_value))
+        if (brightness_value > 255):    logging.error(
+            '{}: Brightness input is greater than 255, 255 is max value! Setting Brightness to 255.'.format(
+                get_function_name())); brightness_value = 255
+        StopThread(thread_id)
+        set_brightness(brightness_value, circuit_value, ms_topic, message)  # not in thread as this is not blocking
+    elif effect_value is not None:
+        logging.error('{}: Processing "effect", but not yet implemented, aborting. Message data is "{}"'.format(
+            get_function_name(), message))
+    elif duration_value is not None:
+        logging.debug(
+            '{}: starting "duration" message handling for dev "{}" circuit "{}" to value "{}" for {} sec.'.format(
+                get_function_name(), circuit_value, state_value, state_value, duration_value))
+        StopThread(thread_id)
+        dThreads[thread_id] = StoppableThread(name=thread_id, target=set_duration, args=(
+            dev_value, circuit_value, state_value, duration_value, ms_topic, message))
+        dThreads[thread_id].start()
+        logging.debug('{}: started thread "{}" for "duration" of dev "{}" circuit "{}".'.format(get_function_name(),
+                                                                                                dThreads[thread_id],
+                                                                                                circuit_value,
+                                                                                                state_value))
+    elif repeat_value is not None:
+        logging.debug('{}: starting "repeat" message handling for dev "{}" circuit "{}" for {} time'.format(
+            get_function_name(), circuit_value, state_value, int(repeat_value)))
+        StopThread(thread_id)
+        dThreads[thread_id] = StoppableThread(name=thread_id, target=set_repeat,
+                                              args=(dev_value, circuit_value, int(repeat_value), ms_topic, message))
+        dThreads[thread_id].start()
+        logging.debug('{}: started thread "{}" for "repeat" of dev "{}" circuit "{}".'.format(get_function_name(),
+                                                                                              dThreads[thread_id],
+                                                                                              circuit_value,
+                                                                                              state_value))
+    elif state_value == "on" or state_value == "off":
+        logging.debug(
+            '{}: starting "state value" message handling for dev "{}" circuit "{}" to value "{}" (not in thread).'.format(
+                get_function_name(), circuit_value, state_value, state_value))
+        StopThread(thread_id)
+        set_state(dev_value, circuit_value, state_value, ms_topic, message)  # not in thread, not blocking
     else:
-        logging.error(
-            '{}: Not all required arguments found in received MQTT message "{}". Need "dev", "circuit" and "state" minimal.'.format(
-                get_function_name(), message))
+        logging.error('{}: No valid actionable item found!')
 
 
 def handle_other(ms_topic,
