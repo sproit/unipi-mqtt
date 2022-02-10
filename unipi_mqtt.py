@@ -1238,15 +1238,17 @@ def on_ws_error(ws, errors):
 def firstrun():
     for config_dev in devdes:
         message = unipy.get_circuit(config_dev['dev'], config_dev['circuit'])
+
+        message = json.dumps(message)
+        logging.info('{}: Set status for dev: {}, circuit: {} to message and values: {}'.format(get_function_name(),
+                                                                                                config_dev['dev'],
+                                                                                                config_dev[
+                                                                                                    'circuit'],
+                                                                                                message))
         try:
-            message = json.dumps(message)
-            logging.info('{}: Set status for dev: {}, circuit: {} to message and values: {}'.format(get_function_name(),
-                                                                                                    config_dev['dev'],
-                                                                                                    config_dev[
-                                                                                                        'circuit'],
-                                                                                                    message))
             ws_sanity_check(message)
-        except:
+        except Exception as e:
+            print(e)
             logging.error(
                 '{}: Input error in first run, message received is ERROR {} on dev: {} and circuit: {}. Please ignore if dev humidity or light'.format(
                     get_function_name(), message, config_dev['dev'], config_dev['circuit']))
