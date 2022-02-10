@@ -10,3 +10,5 @@ ws_server = "127.0.0.1"
 ws_server = "192.168.0.30"
 ws_user = "none" #not implemented auth for ws yet
 ws_pass = "none"
+payload_on = "ON"
+payload_off = "OFF"
