@@ -203,8 +203,9 @@ def handle_json(ms_topic, message: dict):
                     get_function_name(), circuit_value, state_value, brightness_value, transition_value))
             if brightness_value > 255:
                 logging.error(
-                '{}: Brightness input is greater than 255, 255 is max value! Setting Brightness to 255.'.format(
-                    get_function_name())); brightness_value = 255
+                    '{}: Brightness input is greater than 255, 255 is max value! Setting Brightness to 255.'.format(
+                        get_function_name()));
+                brightness_value = 255
             StopThread(thread_id)
             dThreads[thread_id] = StoppableThread(name=thread_id, target=transition_brightness, args=(
                 brightness_value, transition_value, dev_value, circuit_value, ms_topic, message))
@@ -328,51 +329,55 @@ def dev_di(message_dev):
     tijd = time.time()
     in_list_cntr = 0
     for config_dev in devdes:
-        if (config_dev['circuit'] == message_dev['circuit'] and config_dev[
-            'dev'] == 'input'):  # To check if device switch is in config file and is an input
+        if config_dev['circuit'] == message_dev['circuit'] and config_dev['dev'] == 'input':
+            # To check if device switch is in config file and is an input
             raw_mode_presence = 'raw_mode' in config_dev  # becomes True is "raw_mode" is found in config
             device_type_presence = 'device_type' in config_dev  # becomes True is "device_type" is found in config
             handle_local_presence = 'handle_local' in config_dev  # becomes True is "handle local" is found in config
             device_delay_presence = 'device_delay' in config_dev  # becomes True is "device_delay" is found in config
-            if device_delay_presence == True:
+            if device_delay_presence:
                 if config_dev['device_delay'] == 0: device_delay_presence = False
             unipi_value_presence = 'unipi_value' in config_dev
             # If raw mode is selected a WEbdav message will only be transformed into a MQTT message, nothing else.
-            if (
-                    raw_mode_presence == True):  # RAW modes just pushes all fields in the websocket message out via MQTT TODO
+            if raw_mode_presence:  # RAW modes just pushes all fields in the websocket message out via MQTT TODO
                 logging.error('    {}: TO BE IMPLEMENTED".'.format(
                     get_function_name()))  # todo. Can we just add input iD and raw to make this work? stop the loop here?
                 device_type_presence = 'device_type' in config_dev  # becomes True is "device_type" is found in config
-            # Implemented device types per 2020 to filter counter for pulse based counter devices like water meters. Just count counter on NO devices that turn on. Since WebDav does not send a trigger for every update we calculate the delta betwee this and the previous update.
-            elif (device_type_presence == True):
-                if (config_dev['device_type'] == 'counter'):
+            # Implemented device types per 2020 to filter counter for pulse based counter devices like water meters.
+            # Just count counter on NO devices that turn on.
+            # Since WebDav does not send a trigger for every update we calculate the delta betwee this and the previous update.
+            elif device_type_presence:
+                if config_dev['device_type'] == 'counter':
                     if (('max_delay_value' in config_dev) or ('device_delay' in config_dev)) is False:
                         logging.error('{}: Error in Config file, missing fields'.format(get_function_name()))
                     else:
                         config_dev['counter_value'] = message_dev['counter']
-                        if (config_dev["counter_value"] == 0):  # for bootup of script to set initial value
+                        if config_dev["counter_value"] == 0:  # for bootup of script to set initial value
                             config_dev["counter_value"] = message_dev["counter"]
-                            if (config_dev["unipi_value"] == 0):
+                            if config_dev["unipi_value"] == 0:
                                 config_dev["unipi_value"] = (message_dev["counter"] - 1)
                 else:
                     logging.error('{}: Unknown device type "{}", breaking.'.format(get_function_name(),
                                                                                    config_dev['device_type']))
-            elif (device_delay_presence == True):
-                # Running devices with delay to reswitch (like pulse bsed motion sensors that pulse on presence ever 10 sec to on) Using no / nc and delay to switch
+            elif device_delay_presence:
+                # Running devices with delay to reswitch
+                # (like pulse bsed motion sensors that pulse on presence ever 10 sec to on)
+                # Using no / nc and delay to switch
                 # We should only see "ON" here! Off messages are handled in function off_commands
                 logging.debug('{}: Loop with delay with message: {}'.format(get_function_name(), message_dev))
                 if tijd >= (config_dev['unipi_prev_value_timstamp'] + config_dev['device_delay']):
-                    if (message_dev['value'] == 1):
-                        if (config_dev['unipi_value'] == 1):
+                    if message_dev['value'] == 1:
+                        if config_dev['unipi_value'] == 1:
                             logging.debug('{}: received status 1 is actual status: {}'.format(get_function_name(),
                                                                                               message_dev))  # nothing to do, since there is not status change. First in condition to easy load ;-)
-                        elif (config_dev['device_normal'] == 'no'):
-                            dev_switch_on(config_dev[
-                                              'state_topic'])  # check if device is normal status is OPEN or CLOSED loop to turn ON / OFF
-                            if handle_local_presence == True: handle_local_switch_on_or_toggle(message_dev, config_dev)
+                        elif config_dev['device_normal'] == 'no':
+                            publish_state(config_dev['state_topic'], payload_on)
+                            # check if device is normal status is OPEN or CLOSED loop to turn ON / OFF
+                            if handle_local_presence:
+                                handle_local_switch_on_or_toggle(message_dev, config_dev)
                             config_dev['unipi_value'] = message_dev['value']
                             config_dev['unipi_prev_value_timstamp'] = tijd
-                        elif (config_dev['device_normal'] == 'nc'):  # should never run!
+                        elif config_dev['device_normal'] == 'nc':  # should never run!
                             # should not do anything since and off commands are handled in off_commands def.
                             logging.debug(
                                 '{}: This should do nothing since off commands are not handled here. Config: {}, Received message: {}'.format(
@@ -382,18 +387,18 @@ def dev_di(message_dev):
                                 '{}: Unhandled Exception 1, config: {}, status: {}, normal_config: {}, {}, {}'.format(
                                     get_function_name(), config_dev['unipi_value'], message_dev['value'],
                                     config_dev['device_normal'], message_dev['circuit'], config_dev['state_topic']))
-                    elif (message_dev['value'] == 0):
-                        if (config_dev['unipi_value'] == 0):
+                    elif message_dev['value'] == 0:
+                        if config_dev['unipi_value'] == 0:
                             logging.debug('{}: received status 0 is actual status: {}'.format(get_function_name(),
                                                                                               message_dev))  # nothing to do, since there is not status change. First in condition to easy load ;-)
-                        elif (config_dev['device_normal'] == 'no'):  # should never run!
+                        elif config_dev['device_normal'] == 'no':  # should never run!
                             # should not do anything since and off commands are handled in off_commands def.
                             logging.debug(
                                 '{}: This should do nothing since off commands are not handled here. Config: {}, Received message: {}'.format(
                                     get_function_name(), message_dev, config_dev))
-                        elif (config_dev['device_normal'] == 'nc'):
-                            dev_switch_on(config_dev['state_topic'])
-                            if handle_local_presence == True: handle_local_switch_on_or_toggle(message_dev, config_dev)
+                        elif config_dev['device_normal'] == 'nc':
+                            publish_state(config_dev['state_topic'], payload_on)
+                            if handle_local_presence: handle_local_switch_on_or_toggle(message_dev, config_dev)
                             config_dev['unipi_value'] = message_dev['value']
                             config_dev['unipi_prev_value_timstamp'] = tijd
                         else:
@@ -410,16 +415,16 @@ def dev_di(message_dev):
             else:
                 # Running devices without delay, always switching on / of based on UniPi Digital Input
                 logging.debug('{}: Loop without delay with message: {}'.format(get_function_name(), message_dev))
-                if (message_dev['value'] == 1):
-                    if (config_dev['device_normal'] == 'no'):
-                        if (device_type_presence == True):
-                            if (config_dev['device_type'] == 'counter'):
+                if message_dev['value'] == 1:
+                    if config_dev['device_normal'] == 'no':
+                        if device_type_presence:
+                            if config_dev['device_type'] == 'counter':
                                 mqtt_set_counter(message_dev, config_dev)
                             else:
                                 logging.error('{}: Unknown device type "{}", breaking.'.format(get_function_name(),
                                                                                                config_dev[
                                                                                                    'device_type']))  # check if device is normal status is OPEN or CLOSED loop to turn ON / OFF
-                        elif handle_local_presence == True:
+                        elif handle_local_presence:
                             handle_local_switch_on_or_toggle(message_dev, config_dev)
                         else:
                             dev_switch_on(config_dev[
@@ -455,7 +460,7 @@ def dev_di(message_dev):
                                 logging.error('{}: Unknown device type "{}", breaking.'.format(get_function_name(),
                                                                                                config_dev[
                                                                                                    'device_type']))
-                        elif handle_local_presence == True:
+                        elif handle_local_presence:
                             handle_local_switch_on_or_toggle(message_dev, config_dev)
                         else:
                             dev_switch_on(config_dev['state_topic'])
@@ -477,8 +482,9 @@ def dev_ai(message_dev):
     # Function to handle Analoge Inputs from WebSocket (UniPi), mainly focussed on LUX from analoge input now. using a sample rate to reduce rest calls to domotics
     for config_dev in devdes:
         if config_dev['circuit'] == message_dev['circuit'] and config_dev['dev'] == "ai":
-            int_presence = 'interval' in config_dev  # check to see if "interval" in config. If not throw an error. If you want to disable average, set to 0.
-            if (int_presence == True):
+            int_presence = 'interval' in config_dev
+            # check to see if "interval" in config. If not throw an error. If you want to disable average, set to 0.
+            if int_presence:
                 cntr = intervals_counter[config_dev['dev'] + config_dev['circuit']]
                 if cntr <= config_dev['interval']:
                     intervals_average[config_dev['dev'] + config_dev['circuit']][cntr] = float(
@@ -510,7 +516,7 @@ def dev_modbus(message_dev):
             if (config_dev['circuit'] == message_dev['circuit'] and (
                     config_dev['dev'] == "temp" or config_dev['dev'] == "humidity" or config_dev['dev'] == "light")):
                 int_presence = 'interval' in config_dev  # check to see if "interval" in config. If not throw an error. If you want to disable average, set to 0.
-                if int_presence == True:
+                if int_presence:
                     cntr = intervals_counter[config_dev['dev'] + config_dev['circuit']]
                     # config for 1-wire temperature sensors intervals_average[config_dev['dev']+config_dev['circuit']]
                     if config_dev['dev'] == "temp":
@@ -1236,25 +1242,24 @@ def firstrun():
             intervals_counter[(config_dev['dev'] + config_dev['circuit'])] = 0
 
 
-### MAIN FUNCTION
-
 if __name__ == "__main__":
-    ### setting some housekeeping functions and globel vars
+    # setting some housekeeping functions and globel vars
     logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', filename=logging_path, level=logging.DEBUG,
                         datefmt='%Y-%m-%d %H:%M:%S')  # DEBUG,INFO,WARNING,ERROR,CRITICAL
-    urllib3_log = logging.getLogger(
-        "urllib3")  # ignoring informational logging from called modules (rest calls in this case) https://stackoverflow.com/questions/24344045/how-can-i-completely-remove-any-logging-from-requests-module-in-python
+    # ignoring informational logging from called modules (rest calls in this case)
+    # https://stackoverflow.com/questions/24344045/how-can-i-completely-remove-any-logging-from-requests-module-in-python
+    urllib3_log = logging.getLogger("urllib3")
     urllib3_log.setLevel(logging.CRITICAL)
     unipy = unipython(ws_server, ws_user, ws_pass)
 
-    ### Loading the JSON settingsfile
+    # Loading the JSON settingsfile
     dirname = os.path.dirname(__file__)  # set relative path for loading files
     dev_des_file = os.path.join(dirname, 'unipi_mqtt_devices.json')
-    devdes = json.load(open(dev_des_file))
+    devdes: List[dict] = json.load(open(dev_des_file))
 
-    ### MQTT Connection.
+    # MQTT Connection.
     mqttc = mqtt.Client(
-        mqtt_client_name)  # If you want to use a specific client id, use this, otherwise a randon is autogenerated.
+        mqtt_client_name)  # If you want to use a specific client id, use this, otherwise a random id is generated.
     mqttc.on_connect = on_mqtt_connect
     mqttc.on_log = on_mqtt_log  # set client logging
     mqttc.on_disconnect = on_mqtt_disconnect
