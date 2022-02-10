@@ -452,9 +452,9 @@ def dev_di(message_dev):
                                                                                                       'circuit'],
                                                                                                   config_dev[
                                                                                                       'state_topic']))
-                elif (message_dev['value'] == 0):
-                    if (config_dev['device_normal'] == 'no'):
-                        if handle_local_presence == True:
+                elif message_dev['value'] == 0:
+                    if config_dev['device_normal'] == 'no':
+                        if handle_local_presence:
                             pass  # - OLD:handle_local_switch_toggle(message_dev,config_dev)
                         else:
                             dev_switch_off(config_dev[
