@@ -289,7 +289,7 @@ def ws_sanity_check(message):
             if type(message_dev) is dict:
                 message_sort(message_dev)
             else:
-                logging.debug('Ignoring received data, it is not a dict: {}'.format(device))
+                logging.debug('Ignoring received data, it is not a dict: {}'.format(message_dev))
 
 
 # Check if we need to switch off something. This is handled here since this function triggers every second (analoge input update freq.).
