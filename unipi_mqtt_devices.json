@@ -16,5 +16,67 @@
       "device_delay":0,
       "device_normal":"no",
       "topic_root": "home/zolder/relay_0"
+   },
+   {
+      "circuit":"2",
+      "description":"Douche drukknop",
+      "dev":"input",
+      "device_delay":0,
+      "device_normal":"no",
+      "unipi_value":0,
+      "unipi_prev_value_timstamp":0,
+      "topic_root": "home/zolder/douchedrukknop"
+   },
+   {
+      "circuit":"2",
+      "description":"Douche relay",
+      "dev":"relay",
+      "device_delay":0,
+      "device_normal":"no",
+      "topic_root": "home/zolder/relay_1"
+   },
+   {
+      "circuit":"5",
+      "description":"Ventilator badkamer knop 1",
+      "dev":"input",
+      "device_delay":0,
+      "device_normal":"no",
+      "unipi_value":0,
+      "unipi_prev_value_timstamp":0,
+      "topic_root": "home/badkamer/knop1"
+   },
+   {
+      "circuit":"6",
+      "description":"Ventilator badkamer knop 2",
+      "dev":"input",
+      "device_delay":0,
+      "device_normal":"no",
+      "unipi_value":0,
+      "unipi_prev_value_timstamp":0,
+      "topic_root": "home/badkamer/knop2"
+   },
+   {
+      "circuit":"3",
+      "description":"Badkamer ventilator main",
+      "dev":"relay",
+      "device_delay":0,
+      "device_normal":"no",
+      "topic_root": "home/badkamer/ventilator_main"
+   },
+   {
+      "circuit":"4",
+      "description":"Badkamer ventilator temporair",
+      "dev":"relay",
+      "device_delay":0,
+      "device_normal":"no",
+      "topic_root": "home/badkamer/ventilator_temp"
+   },
+   {
+      "circuit": "1",
+      "description": "analogout output",
+      "dev":"ao",
+      "topic_root": "home/zolder/analog"
    }
+
+
 ]
