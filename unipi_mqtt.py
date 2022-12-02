@@ -181,6 +181,7 @@ def handle_json(ms_topic, message: dict):
                 get_function_name(), message))
     # id = circuit_value
     thread_id = dev_value + circuit_value
+    print("state val: {}, type: {}", state_value, type(state_value))
     logging.debug(
         '{}: Valid WebSocket input received, processing message "{}"'.format(get_function_name(), message))
     if transition_value is not None:
@@ -242,7 +243,7 @@ def handle_json(ms_topic, message: dict):
                                                                                               dThreads[thread_id],
                                                                                               circuit_value,
                                                                                               state_value))
-    elif state_value == "on" or state_value == "off":
+    elif state_value == "on" or state_value == "off" or state_value.isdigit():
         logging.debug(
             '{}: starting "state value" message handling for dev "{}" circuit "{}" to value "{}" (not in thread).'.format(
                 get_function_name(), circuit_value, state_value, state_value))
@@ -508,7 +509,7 @@ def dev_ai(message_dev):
 
 
 def dev_relay(message_dev):
-    print(message_dev)
+    print("relay stuff: {}", message_dev)
     device = get_configured_device(message_dev['circuit'], message_dev['dev'])
     if device is None:
         return
@@ -687,6 +688,9 @@ def set_state(dev, circuit, state, topic, message):
             logging.error(
                 '   {}: Error setting device {} circuit {} on UniPi, got error "{}" back when posting via rest.'.format(
                     get_function_name(), dev, circuit, stat_code.status_code))
+    elif dev == "ao" and state.isdigit():
+        print("setting analog")
+        unipy.set_level(circuit, int(state))
     else:
         logging.error('   {}: Unhandled exception in function.'.format(get_function_name()))
     # del dThreads[thread_id]
@@ -1277,7 +1281,7 @@ if __name__ == "__main__":
     dirname = os.path.dirname(__file__)  # set relative path for loading files
     dev_des_file = os.path.join(dirname, 'unipi_mqtt_devices.json')
     devdes: List[dict] = json.load(open(dev_des_file))
-
+    
     # MQTT Connection.
     mqttc = mqtt.Client(
         mqtt_client_name)  # If you want to use a specific client id, use this, otherwise a random id is generated.
